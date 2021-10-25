@@ -9,6 +9,7 @@ import numpy as np
 import os.path as osp
 
 import yaml
+from option import args
 from collections import OrderedDict
 from shutil import copyfile, copytree
 import pickle
@@ -131,7 +132,7 @@ class checkpoint():
         self.log_file.close()
 
     def plot_map_rank(self, epoch):
-        axis = np.linspace(1, epoch, self.log.size(0))
+        axis = np.linspace(0, epoch, self.log.size(0)) if args.test_pretrained else np.linspace(1, epoch, self.log.size(0))
         label = 'Reid on {}'.format(self.args.data_test)
         labels = ['mAP', 'rank1', 'rank3', 'rank5', 'rank10']
         fig = plt.figure()
@@ -143,8 +144,7 @@ class checkpoint():
         plt.xlabel('Epochs')
         plt.ylabel('mAP/rank')
         plt.grid(True)
-        plt.savefig('{}/result_{}.pdf'.format(self.dir,
-                                              self.args.data_test), dpi=600)
+        plt.savefig('{}/result_{}.pdf'.format(self.dir, self.args.data_test), dpi=600)
         plt.close(fig)
 
     def save_results(self, filename, save_list, scale):

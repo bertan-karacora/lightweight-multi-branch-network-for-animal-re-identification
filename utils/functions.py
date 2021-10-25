@@ -4,6 +4,7 @@ import warnings
 import torch
 from sklearn.metrics import average_precision_score
 import os
+from option import args
 
 try:
     ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
@@ -47,7 +48,7 @@ def evaluate_py(distmat, q_pids, g_pids, q_camids, g_camids, max_rank):
 
         # remove gallery samples that have the same pid and camid with query
         order = indices[q_idx]
-        remove = (g_pids[order] == q_pid) & (g_camids[order] == q_camid)
+        remove = (g_pids[order] == q_pid) & (g_camids[order] == q_camid) if args.data_test != "wildpark" else g_camids[order] != q_camid
         keep = np.invert(remove)
 
         # compute cmc curve

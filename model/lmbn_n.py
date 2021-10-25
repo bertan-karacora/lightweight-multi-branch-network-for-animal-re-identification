@@ -27,21 +27,29 @@ class LMBN_n(nn.Module):
 
         conv3 = osnet.conv3[1:]
 
-        self.global_branch = nn.Sequential(copy.deepcopy(
-            conv3), copy.deepcopy(osnet.conv4), copy.deepcopy(osnet.conv5))
+        self.global_branch = nn.Sequential(
+            copy.deepcopy(conv3),
+            copy.deepcopy(osnet.conv4),
+            copy.deepcopy(osnet.conv5)
+        )
 
-        self.partial_branch = nn.Sequential(copy.deepcopy(
-            conv3), copy.deepcopy(osnet.conv4), copy.deepcopy(osnet.conv5))
+        self.partial_branch = nn.Sequential(
+            copy.deepcopy(conv3),
+            copy.deepcopy(osnet.conv4),
+            copy.deepcopy(osnet.conv5)
+        )
 
-        self.channel_branch = nn.Sequential(copy.deepcopy(
-            conv3), copy.deepcopy(osnet.conv4), copy.deepcopy(osnet.conv5))
+        self.channel_branch = nn.Sequential(
+            copy.deepcopy(conv3),
+            copy.deepcopy(osnet.conv4),
+            copy.deepcopy(osnet.conv5)
+        )
 
         self.global_pooling = nn.AdaptiveMaxPool2d((1, 1))
         self.partial_pooling = nn.AdaptiveAvgPool2d((2, 1))
         self.channel_pooling = nn.AdaptiveAvgPool2d((1, 1))
 
-        reduction = BNNeck3(512, args.num_classes,
-                            args.feats, return_f=True)
+        reduction = BNNeck3(512, args.num_classes, args.feats, return_f=True)
 
         self.reduction_0 = copy.deepcopy(reduction)
         self.reduction_1 = copy.deepcopy(reduction)
@@ -49,43 +57,33 @@ class LMBN_n(nn.Module):
         self.reduction_3 = copy.deepcopy(reduction)
         self.reduction_4 = copy.deepcopy(reduction)
 
-        self.shared = nn.Sequential(nn.Conv2d(
-            self.chs, args.feats, 1, bias=False), nn.BatchNorm2d(args.feats), nn.ReLU(True))
+        self.shared = nn.Sequential(
+            nn.Conv2d(self.chs, args.feats, 1, bias=False),
+            nn.BatchNorm2d(args.feats),
+            nn.ReLU(True)
+        )
         self.weights_init_kaiming(self.shared)
 
-        self.reduction_ch_0 = BNNeck(
-            args.feats, args.num_classes, return_f=True)
-        self.reduction_ch_1 = BNNeck(
-            args.feats, args.num_classes, return_f=True)
+        self.reduction_ch_0 = BNNeck(args.feats, args.num_classes, return_f=True)
+        self.reduction_ch_1 = BNNeck(args.feats, args.num_classes, return_f=True)
 
-        # if args.drop_block:
-        #     print('Using batch random erasing block.')
-        #     self.batch_drop_block = BatchRandomErasing()
-        # print('Using batch drop block.')
-        # self.batch_drop_block = BatchDrop(
-        #     h_ratio=args.h_ratio, w_ratio=args.w_ratio)
         self.batch_drop_block = BatchFeatureErase_Top(512, OSBlock)
 
         self.activation_map = args.activation_map
 
     def forward(self, x):
-        # if self.batch_drop_block is not None:
-        #     x = self.batch_drop_block(x)
-
         x = self.backone(x)
 
         glo = self.global_branch(x)
         par = self.partial_branch(x)
         cha = self.channel_branch(x)
 
-        if self.activation_map:
-            glo_ = glo
-
         if self.batch_drop_block is not None:
+            if self.activation_map:
+                self.batch_drop_block.drop_batch_drop_top.training = True
             glo_drop, glo = self.batch_drop_block(glo)
 
         if self.activation_map:
-
             _, _, h_par, _ = par.size()
 
             fmap_p0 = par[:, :, :h_par // 2, :]
@@ -94,10 +92,10 @@ class LMBN_n(nn.Module):
             fmap_c1 = cha[:, self.chs:, :, :]
             print('Generating activation maps...')
 
-            return glo, glo_, fmap_c0, fmap_c1, fmap_p0, fmap_p1
+            return glo, glo_drop, fmap_c0, fmap_c1, fmap_p0, fmap_p1
 
-        glo_drop = self.global_pooling(glo_drop)
         glo = self.channel_pooling(glo)  # shape:(batchsize, 512,1,1)
+        glo_drop = self.global_pooling(glo_drop) # shape:(batchsize, 512,1,1)
         g_par = self.global_pooling(par)  # shape:(batchsize, 512,1,1)
         p_par = self.partial_pooling(par)  # shape:(batchsize, 512,2,1)
         cha = self.channel_pooling(cha)  # shape:(batchsize, 256,1,1)
@@ -125,9 +123,7 @@ class LMBN_n(nn.Module):
         fea = [f_glo[-1], f_glo_drop[-1], f_p0[-1]]
 
         if not self.training:
-
             return torch.stack([f_glo[0], f_glo_drop[0], f_p0[0], f_p1[0], f_p2[0], f_c0[0], f_c1[0]], dim=2)
-            # return torch.stack([f_glo_drop[0], f_p0[0], f_p1[0], f_p2[0], f_c0[0], f_c1[0]], dim=2)
 
         return [f_glo[1], f_glo_drop[1], f_p0[1], f_p1[1], f_p2[1], f_c0[1], f_c1[1]], fea
 

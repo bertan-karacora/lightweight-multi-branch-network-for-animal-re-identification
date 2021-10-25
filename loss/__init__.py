@@ -29,8 +29,7 @@ class LossFunction():
             weight, loss_type = loss.split('*')
             if loss_type == 'CrossEntropy':
                 if args.if_labelsmooth:
-                    loss_function = CrossEntropyLabelSmooth(
-                        num_classes=args.num_classes)
+                    loss_function = CrossEntropyLabelSmooth(num_classes=args.num_classes)
                     ckpt.write_log('[INFO] Label Smoothing On.')
                 else:
                     loss_function = nn.CrossEntropyLoss()

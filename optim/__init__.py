@@ -84,45 +84,16 @@ def make_optimizer(args, model):
 
 
 def make_scheduler(args, optimizer, last_epoch):
-
-    # if args.warmup in ['linear', 'constant'] and args.load == '' and args.pre_train == '':
     milestones = args.decay_type.split('_')
     milestones.pop(0)
     milestones = list(map(lambda x: int(x), milestones))
     if args.cosine_annealing:
-        scheduler = lrs.CosineAnnealingLR(
-            optimizer, float(args.epochs), last_epoch=last_epoch
-        )
-
+        scheduler = lrs.CosineAnnealingLR(optimizer, float(args.epochs), last_epoch=last_epoch)
         return scheduler
 
-    if args.w_cosine_annealing:
-
-        scheduler = WarmupCosineAnnealingLR(
-            optimizer, multiplier=1, warmup_epoch=10, min_lr=args.lr / 1000, epochs=args.epochs, last_epoch=last_epoch)
-
+    elif args.w_cosine_annealing:
+        scheduler = WarmupCosineAnnealingLR(optimizer, multiplier=1, warmup_epoch=int(round(args.epochs / 5.0)), min_lr=args.lr / 1000, epochs=args.epochs, last_epoch=last_epoch)
         return scheduler
 
-    scheduler = WarmupMultiStepLR(
-        optimizer, milestones, args.gamma, 0.01, 10, args.warmup, last_epoch=last_epoch)
-
-    return scheduler
-
-    if args.decay_type == 'step':
-        scheduler = lrs.StepLR(
-            optimizer,
-            step_size=args.lr_decay,
-            gamma=args.gamma
-        )
-    elif args.decay_type.find('step') >= 0:
-        milestones = args.decay_type.split('_')
-        milestones.pop(0)
-        milestones = list(map(lambda x: int(x), milestones))
-        # print(milestones, 'milestones')
-        scheduler = lrs.MultiStepLR(
-            optimizer,
-            milestones=milestones,
-            gamma=args.gamma
-        )
-
+    scheduler = WarmupMultiStepLR(optimizer, milestones, gamma=args.gamma, warmup_factor=0.01, warmup_iters=int(round(args.epochs / 5.0)), warmup_method=args.warmup, last_epoch=last_epoch)
     return scheduler

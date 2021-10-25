@@ -11,10 +11,10 @@ from torch.nn import functional as F
 
 sys.path.append(osp.join(osp.abspath(osp.dirname(__file__)), ".."))
 
-import data_v2
+import data
 import loss
-import optim
-from model import Model
+from optim import make_optimizer, make_scheduler
+from model import make_model
 from option import args
 import utils.utility as utility
 from utils.model_complexity import compute_model_complexity
@@ -31,7 +31,7 @@ RED = (0, 0, 255)
 
 
 def visualize_ranked_results(
-    distmat, query_loader, gallery_loader, data_type, width=128, height=256, save_dir='', topk=10
+    distmat, query_loader, gallery_loader, data_type, width=128, height=256, save_dir='', topk=30
 ):
     """Visualizes ranked results.
     Supports both image-reid and video-reid.
@@ -130,7 +130,7 @@ def visualize_ranked_results(
         rank_idx = 1
         for g_idx in indices[q_idx, :]:
             gimg_path, gpid, gcamid = gallery[g_idx][:3]
-            invalid = (qpid == gpid) & (qcamid == gcamid)
+            invalid = (qpid == gpid) & (qcamid == gcamid) if args.data_test != "wildpark" else qcamid != gcamid
 
             if not invalid:
                 matched = gpid == qpid
@@ -247,64 +247,35 @@ def extract_feature(model, device, loader, args):
 
 
 def main():
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('--root', type=str)
-    # parser.add_argument('-d', '--dataset', type=str, default='market1501')
-    # parser.add_argument('-m', '--model', type=str, default='osnet_x1_0')
-    # parser.add_argument('--weights', type=str)
-    # parser.add_argument('--save-dir', type=str, default='log')
-    # parser.add_argument('--height', type=int, default=256)
-    # parser.add_argument('--width', type=int, default=128)
-    # args = parser.parse_args()
-
-    if args.config != '':
-        with open(args.config, 'r') as f:
+    if args.config != "":
+        with open(args.config, "r") as f:
             config = yaml.load(f)
         for op in config:
             setattr(args, op, config[op])
 
-    # loader = data.Data(args)
     ckpt = utility.checkpoint(args)
-    loader = data_v2.ImageDataManager(args)
-    model = Model(args, ckpt)
-    optimzer = optim.make_optimizer(args, model)
-    # loss = loss.make_loss(args, ckpt) if not args.test_only else None
+    loader = data.VideoDataManager(args) if args.video else data.ImageDataManager(args)
+    model = make_model(args, ckpt)
+    optimzer = make_optimizer(args, model)
 
     start = -1
-    if args.load != '':
-        start = ckpt.resume_from_checkpoint(
-            osp.join(ckpt.dir, 'model-latest.pth'), model, optimzer) - 1
-    if args.pre_train != '':
+    if args.load != "":
+        start, model, optimizer = ckpt.resume_from_checkpoint(osp.join(ckpt.dir, "model-best.pth"), model, optimzer)
+        start = start - 1
+    if args.pre_train != "":
         ckpt.load_pretrained_weights(model, args.pre_train)
 
-    scheduler = optim.make_scheduler(args, optimzer, start)
+    scheduler = make_scheduler(args, optimzer, start)
 
-    # print('[INFO] System infomation: \n {}'.format(get_pretty_env_info()))
     ckpt.write_log('[INFO] Model parameters: {com[0]} flops: {com[1]}'.format(
         com=compute_model_complexity(model, (1, 3, args.height, args.width))))
 
     use_gpu = torch.cuda.is_available()
 
-    # datamanager = torchreid.data.ImageDataManager(
-    #     root=args.root,
-    #     sources=args.dataset,
-    #     height=args.height,
-    #     width=args.width,
-    #     batch_size_train=100,
-    #     batch_size_test=100,
-    #     transforms=None,
-    #     train_sampler='SequentialSampler'
-    # )
-    # test_loader = loader.testloader
     test_loader = loader.test_loader
     query_loader = loader.query_loader
     query_dataset = loader.queryset.query
     gallery_dataset = loader.galleryset.gallery
-    # model = torchreid.models.build_model(
-    #     name=args.model,
-    #     num_classes=datamanager.num_train_pids,
-    #     use_gpu=use_gpu
-    # )
 
     if use_gpu:
         model = model.cuda()
@@ -313,9 +284,6 @@ def main():
 
     model.eval()
 
-    # self.ckpt.add_log(torch.zeros(1, 6))
-    # qf = self.extract_feature(self.query_loader,self.args).numpy()
-    # gf = self.extract_feature(self.test_loader,self.args).numpy()
     with torch.no_grad():
 
         qf, query_ids, query_cams = extract_feature(

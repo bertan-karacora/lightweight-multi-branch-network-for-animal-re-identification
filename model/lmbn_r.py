@@ -1,7 +1,4 @@
-
-
 import copy
-
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -40,84 +37,85 @@ class LMBN_r(nn.Module):
         conv3 = nn.Sequential(*resnet.layer3[1:])
         no_downsample_conv4 = nn.Sequential(
             Bottleneck(1024, 512, downsample=nn.Sequential(
-                nn.Conv2d(1024, 2048, 1, bias=False), nn.BatchNorm2d(2048))),
+                nn.Conv2d(1024, 2048, 1, bias=False),
+                nn.BatchNorm2d(2048)
+            )),
             Bottleneck(2048, 512),
-            Bottleneck(2048, 512))
+            Bottleneck(2048, 512)
+        )
         no_downsample_conv4.load_state_dict(resnet.layer4.state_dict())
 
-        self.global_branch = nn.Sequential(copy.deepcopy(
-            conv3), copy.deepcopy(resnet.layer4))
+        self.global_branch = nn.Sequential(
+            copy.deepcopy(conv3),
+            copy.deepcopy(resnet.layer4)
+        )
 
-        self.partial_branch = nn.Sequential(copy.deepcopy(
-            conv3), copy.deepcopy(no_downsample_conv4))
+        self.partial_branch = nn.Sequential(
+            copy.deepcopy(conv3),
+            copy.deepcopy(no_downsample_conv4)
+        )
 
-        self.channel_branch = nn.Sequential(copy.deepcopy(
-            conv3), copy.deepcopy(no_downsample_conv4))
+        self.channel_branch = nn.Sequential(
+            copy.deepcopy(conv3),
+            copy.deepcopy(no_downsample_conv4)
+        )
 
         self.global_pooling = nn.AdaptiveMaxPool2d((1, 1))
         self.partial_pooling = nn.AdaptiveAvgPool2d((2, 1))
         self.channel_pooling = nn.AdaptiveMaxPool2d((1, 1))
         self.avg_pooling = nn.AdaptiveAvgPool2d((1, 1))
 
-        reduction = BNNeck3(2048, args.num_classes,
-                            args.feats, return_f=True)
+        reduction = BNNeck3(2048, args.num_classes, args.feats, return_f=True)
         self.reduction_0 = copy.deepcopy(reduction)
         self.reduction_1 = copy.deepcopy(reduction)
         self.reduction_2 = copy.deepcopy(reduction)
         self.reduction_3 = copy.deepcopy(reduction)
         self.reduction_drop = copy.deepcopy(reduction)
 
-        self.shared = nn.Sequential(nn.Conv2d(
-            self.chs, args.feats, 1, bias=False), nn.BatchNorm2d(args.feats), nn.ReLU(True))
+        self.shared = nn.Sequential(
+            nn.Conv2d(self.chs, args.feats, 1, bias=False),
+            nn.BatchNorm2d(args.feats), nn.ReLU(True)
+        )
         self.weights_init_kaiming(self.shared)
 
-        self.reduction_ch_0 = BNNeck(
-            args.feats, args.num_classes, return_f=True)
-        self.reduction_ch_1 = BNNeck(
-            args.feats, args.num_classes, return_f=True)
-
-        # if args.drop_block:
-        #     print('Using batch random erasing block.')
-        #     self.batch_drop_block = BatchRandomErasing()
+        self.reduction_ch_0 = BNNeck(args.feats, args.num_classes, return_f=True)
+        self.reduction_ch_1 = BNNeck(args.feats, args.num_classes, return_f=True)
 
         self.batch_drop_block = BatchFeatureErase_Top(2048, Bottleneck)
 
         self.activation_map = args.activation_map
 
     def forward(self, x):
-        # if self.batch_drop_block is not None:
-        #     x = self.batch_drop_block(x)
-
         x = self.backone(x)
 
         glo = self.global_branch(x)
         par = self.partial_branch(x)
         cha = self.channel_branch(x)
 
-        if self.activation_map:
+        if self.batch_drop_block is not None:
+            if self.activation_map:
+                self.batch_drop_block.drop_batch_drop_top.training = True
+            glo_drop, glo = self.batch_drop_block(glo)
 
+        if self.activation_map:
             _, _, h_par, _ = par.size()
 
             fmap_p0 = par[:, :, :h_par // 2, :]
             fmap_p1 = par[:, :, h_par // 2:, :]
             fmap_c0 = cha[:, :self.chs, :, :]
             fmap_c1 = cha[:, self.chs:, :, :]
+            print('Generating activation maps...')
 
-            return glo, fmap_c0, fmap_c1, fmap_p0, fmap_p1
+            return glo, glo_drop, fmap_c0, fmap_c1, fmap_p0, fmap_p1
 
-        if self.batch_drop_block is not None:
-            glo_drop, glo = self.batch_drop_block(glo)
-
-        glo_drop = self.global_pooling(glo_drop)
         glo = self.global_pooling(glo)
-        # glo = self.global_pooling(glo)  # shape:(batchsize, 2048,1,1)
-        g_par = self.global_pooling(par)  # shape:(batchsize, 2048,1,1)
-        p_par = self.partial_pooling(par)  # shape:(batchsize, 2048,3,1)
+        glo_drop = self.global_pooling(glo_drop)
+        g_par = self.global_pooling(par)
+        p_par = self.partial_pooling(par)
         cha = self.channel_pooling(cha)
 
         p0 = p_par[:, :, 0:1, :]
         p1 = p_par[:, :, 1:2, :]
-        # print(glo.shape)
         f_glo = self.reduction_0(glo)
         f_p0 = self.reduction_1(g_par)
         f_p1 = self.reduction_2(p0)
@@ -128,7 +126,6 @@ class LMBN_r(nn.Module):
 
         c0 = cha[:, :self.chs, :, :]
         c1 = cha[:, self.chs:, :, :]
-        # print(c0.shape)
         c0 = self.shared(c0)
         c1 = self.shared(c1)
         f_c0 = self.reduction_ch_0(c0)

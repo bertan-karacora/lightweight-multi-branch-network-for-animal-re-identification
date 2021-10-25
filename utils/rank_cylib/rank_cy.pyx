@@ -9,6 +9,7 @@ cimport numpy as np
 
 import random
 from collections import defaultdict
+from option import args
 
 """
 Compiler directives:
@@ -195,11 +196,18 @@ cpdef eval_market1501_cy(float[:,:] distmat, long[:] q_pids, long[:]g_pids,
         meet_condition = 0
         
         for g_idx in range(num_g):
-            if (g_pids[order[g_idx]] != q_pid) or (g_camids[order[g_idx]] != q_camid):
-                raw_cmc[num_g_real] = matches[q_idx][g_idx]
-                num_g_real += 1
-                if matches[q_idx][g_idx] > 1e-31:
-                    meet_condition = 1
+            if args.data_test != "wildpark":
+                if (g_pids[order[g_idx]] != q_pid) or (g_camids[order[g_idx]] != q_camid):
+                    raw_cmc[num_g_real] = matches[q_idx][g_idx]
+                    num_g_real += 1
+                    if matches[q_idx][g_idx] > 1e-31:
+                        meet_condition = 1
+            else:
+                if g_camids[order[g_idx]] == q_camid:
+                    raw_cmc[num_g_real] = matches[q_idx][g_idx]
+                    num_g_real += 1
+                    if matches[q_idx][g_idx] > 1e-31:
+                        meet_condition = 1
         
         if not meet_condition:
             # this condition is true when query identity does not appear in gallery
