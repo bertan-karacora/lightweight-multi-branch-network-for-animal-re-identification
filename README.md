@@ -1,12 +1,43 @@
-#  Lightweight Multi-Branch Network for Person Re-Identification
+# Lightweight Multi-Branch Network for Animal Re-identification
 
-Pytorch implementation for the paper "Lightweight Multi-Branch Network for Person Re-Identification" [![Paper](https://img.shields.io/badge/arXiv-2101.10774-important)](https://arxiv.org/abs/2101.10774)
+Pytorch implementation for an Animal Re-Identification system based on the paper "Lightweight Multi-Branch Network for Person Re-Identification"
 
-![](/utils/LightMB.png)
+[![Paper](https://img.shields.io/badge/arXiv-2101.10774-important)](https://arxiv.org/abs/2101.10774)
+
+![LightMB](/utils/LightMB.png)
+
+## Most important contributions
+
+Essential modifications from the original code include:
+
+- Added options for mask usage, frame dropping, query-gallery-sepation, test on pretrained model (0. epoch)
+- Added testing on 0. epoch and added this to log and performance graph generation
+- Fixed visualization of activation maps
+- Fixed cython test for faster testing (gpu instead of cpu)
+- Added model architectures lmbn_only_global, lmbn_only_channel, lmbn_only_part. Modified network architecture to only use specific branch and forward the right features for inference.
+- Added activation map output of standard lmbn_n model and fixed drop block. Drop block applied before activation is returned, not afterwards.
+- ImageDataset classes baywald.py and wildpark.py including video dataset processing.
+
+## Results
+
+![1](/doc/images/experimentelle-durchfuehrung.png)
+![2](/doc/images/trainingsparameter.png)
+![3](/doc/images/mAP.png)
+![4](/doc/images/activation_maps.png)
+![5](/doc/images/similarity_rankings.png)
+![6](/doc/images/architecture.png)
+![7](/doc/images/frame_dropping.png)
+![8](/doc/images/frame_dropping_mAP.png)
+![9](/doc/images/separation.png)
+![10](/doc/images/architecture.png)
+![11](/doc/images/masks.png)
+
+## Details
 
 This repo supports easy dataset preparation, including Market-1501, DukeMTMC-ReID, CUHK03, MOT17, sota deep neural networks and various options(tricks) for reid, easy combination of different kinds of loss function, end-to-end training and evaluation and less package requirements.
 
 List of functions
+
 - Warm up cosine annealing learning rate
 - Random erasing augmentation
 - Cutout augmentation
@@ -23,6 +54,7 @@ List of functions
 - BNNeck
 
 Inplemented networks:
+
 - Lightweight Multi-Branch Network(LightMBN), which we proposed
 - PCB [[link]](https://arxiv.org/pdf/1711.09349.pdf)
 - MGN [[link]](https://arxiv.org/abs/1804.01438)
@@ -31,84 +63,50 @@ Inplemented networks:
 - Batch Drop Block(BDB) for Person ReID [[link]](https://arxiv.org/abs/1811.07130)
 
 ## Getting Started
-The designed code architecture is concise and easy explicable, where the file engine.py defines the train/ test process and main.py controls the overall epochs, and the folders model, loss, optimizer including respective parts of neural network.
 
-The user-friendly command-line module argparse helps us indicate different datasets, networks, loss functions, and tricks as we need, the detailed options/configurations are described in the bottom of this page.
+The python notebook can be uploaded to Google Colab and used instantly. Explanation on how to run the code and reproduce results can be found in the notebook. In the notebook, everything will be downloaded automatically from my GDrive without any registration. For independence from my GDrive, prepare required files for the notebook manually. Required are the folders BayWaldDataset, WildparkDataset and LightMBN. Note that the code it not adjusted for expired Google Drive connections and links for downloading this repo in a Colab machine as well as the animal datasets.
 
-If you don't have any dataset yet, run 
-```
-git clone https://github.com/jixunbo/ReIDataset.git
-```
-to download Market-1501, DukeMTMC, CUHK03 and MOT17.
+For more information, please contact me.
 
-To inplement our Lightweight Multi-Branch Network with Multi-Similarity loss, run
 
-```
-python [path to repo]/main.py --datadir [path to datasets] --data_train market1501 --data_test market1501 --model LMBN_n --batchid 6 --batchimage 8 --batchtest 32 --test_every 20 --epochs 130 --loss 0.5*CrossEntropy+0.5*MSLoss --margin 0.7 --nGPU 1 --lr 6e-4 --optimizer ADAM --random_erasing --feats 512 --save '' --if_labelsmooth --w_cosine_annealing
-```
+### BayWaldDataset and WildparkDataset
 
-Also, using pre-defined config file
-
-````
-python [path to repo]/main.py --config [path to repo]/lmbn_config.yaml --save ''
-````
-
-All logs, results and parameters will be saved in folder 'experiment'.
-
-Note that, the option '--datadir' is the dataset root, which contains folder Market-1501, DukeMTMC-ReID etw..
-
-'--data_train' and '--data_test' specify the name of train/test dataset, which we can train on one dataset but test on another dataset.
-
-'--batchid 8' and '--batchimage 6' indicate that each batch contrains 8 persons, each person has 6 different images, totally 48 images.
-
-'--epochs' is the epochs we'd like to train, while '--test_every 10' means evaluation will be excuted in every 10 epochs, the parameters of network and optimizer are updated after every every evaluation. 
-
-Actually, for the LightMBN model we have two kinds of backbone, LMBN_r we use ResNet50 as backbone, while LMBN_n is OSNet, OSNet contrains much less parameters but could achieve a little bit better performance than ResNet50.
-
-### Results
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/lightweight-multi-branch-network-for-person/person-re-identification-on-cuhk03-labeled)](https://paperswithcode.com/sota/person-re-identification-on-cuhk03-labeled?p=lightweight-multi-branch-network-for-person)
-| Model | Market1501 | DukeMTMC-reID | CUHK03-D | CUHK03-L |
-| ---: | -- | -- | --- | --- |
-| LightMBN| 96.3 (91.5) | 92.1 (83.7) | 85.4 (82.6) | 87.2 (85.1) |
-| + re-rank | 96.8 (95.3) | 93.5 (90.2) | 90.2 (90.6) | 91.3 (92.2) |
-| LightMBN(ResNet) | 96.1 (90.5) |  90.5 (82.0) | 81.0 (79.2) | 83.7 (82.5) |
-| BoT | 94.2 (85.4) |  86.7 (75.8) |  |  |
-| PCB | 95.1 (86.3) |  87.6 (76.6) |  |  |
-| MGN | 94.7 (87.5) | 88.7 (79.4) |  |  |
-
-Note, Rank-1(mAP), the results are produced by our repo **without re-ranking**, models and configurations may differ from original paper.
-
-Additionally, the evaluation metric method is the same as bag of tricks [repo](https://github.com/michuanhaohao/reid-strong-baseline/blob/master/utils/reid_metric.py).
-
-For training on cuhk03 dataset with MS Loss, the batch size of 8 x 8 would be recommended.
+The folders BayWaldDataset and WildparkDataset contain annotation files and a csv file that defines the train-test split.
 
 ### Pre-trained models
+
 and correpondent config files can be found [here](https://1drv.ms/u/s!Ap1wlV4d0agrao4DxXe8loc_k30?e=I9PJXP) .
 
 If you have pretrained model and config file, run
-```
+
+```bash
 python [path to repo]/main.py --test_only --config [path to repo]/lmbn_config.yaml --pre_train [path to pretrained model]
 ```
 to see the performance of the model.
 
 If you would like to re-inplement Bag of Tricks, run
-```
+
+```bash
 python [path to repo]/main.py --datadir [path to datasets] --data_train market1501 --data_test market1501 --model ResNet50 --batchid 16 --batchimage 4 --batchtest 32 --test_every 10 --epochs 120 --save '' --decay_type step_40_70 --loss 0.5*CrossEntropy+0.5*Triplet --margin 0.3 --nGPU 1 --lr 3.5e-4 --optimizer ADAM --random_erasing --warmup 'linear' --if_labelsmooth
 ```
-or 
-```
+
+or
+
+```bash
 python [path to repo]/main.py --config [path to repo]/bag_of_tricks_config.yaml --save ''
 ```
 
 If you would like to re-inplement PCB with powerful training tricks, run
-```
+
+```bash
 python [path to repo]/main.py --datadir [path to datasets] --data_train Market1501 --data_test Market1501 --model PCB --batchid 8 --batchimage 8 --batchtest 32 --test_every 10 --epochs 120 --save '' --decay_type step_50_80_110 --loss 0.5*CrossEntropy+0.5*MSLoss --margin 0.7 --nGPU 1 --lr 5e-3 --optimizer SGD --random_erasing --warmup 'linear' --if_labelsmooth --bnneck --parts 3
 ```
 
 Note that, the option '--parts' is used to set the number of stripes to be devided, original paper set 6.
 
 And also, for MGN model run
-```
+
+```bash
 python [path to repo]/main.py --datadir [path to datasets] --data_train Market1501 --data_test Market1501 --model MGN --batchid 16 --batchimage 4 --batchtest 32 --test_every 10 --epochs 120 --save '' --decay_type step_50_80_110 --loss 0.5*CrossEntropy+0.5*Triplet --margin 1.2 --nGPU 1 --lr 2e-4 --optimizer ADAM --random_erasing --warmup 'linear' --if_labelsmooth
 ```
 
@@ -120,18 +118,9 @@ python [path to repo]/main.py --config [path to repo]/lmbn_config.yaml --load [p
 ```
 Of course, you can also set options individually using argparse command-line without config file.
 
-## Easy Inplementation  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/14aRebdOqJSfNlwXiI5USOQBgweckUwLS)
-Our code can be inplemented easily online without install any package or requirement even GPU in your own computer thanks to Google Colab, all the packages we need are Colab standard pre-installed packages.
-
-Open this [notebook](https://colab.research.google.com/drive/14aRebdOqJSfNlwXiI5USOQBgweckUwLS), following the steps there and you can see the training process and results.
-
-Please be sure that your are using Google's powerful GPU(Tesla P100 or T4).
-
-The whole training process(120 epochs) takes ~9 hours.
-If you are hard-core player ^ ^ and you'd like to try different models or options, see Get Started as above.
-
 
 ## Option Description
+
 '--nThread': type=int, default=4, number of threads for data loading.
 
 '--cpu', action='store_true', if raise, use cpu only.
@@ -211,6 +200,3 @@ If you are hard-core player ^ ^ and you'd like to try different models or option
 '--T', type=int, default=3, number of iterations of computing group loss.
 
 '--num_anchors', type=int, default=1, number of iterations of computing group loss.
-
-### Acknowledgments
-The codes was built on the top of  [deep-person-reid](https://github.com/KaiyangZhou/deep-person-reid) and [reid-strong-baseline](https://github.com/michuanhaohao/reid-strong-baseline) and [MGN-pytorch](https://github.com/seathiefwang/MGN-pytorch) , we thank the authors for sharing their code publicly.
