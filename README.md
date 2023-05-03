@@ -6,6 +6,10 @@ Pytorch implementation for an Animal Re-Identification system based on the paper
 
 ![LightMB](/utils/LightMB.png)
 
+## Abstract
+
+The specific identification of animal individuals is fundamental for a broad range of biological research applications such as measuring biodiversity or studying animal behaviour. Using camera trap data and image-based deep learning systems, wild animals can be identified upon re-encounter avoiding any invasive methods, which often include capturing and sometimes injuring them. Thus, their behaviour is not effected and investigations can be automated with low logistical requirements. While recently, an increasing amount of Person Re-Identification approaches have been proposed, current advances in this field might also be applied to Animal Re-Identification. The Lightweight Multi-Branch Network, as introduced by Herzog et al. in 2021, focuses on resource-efficient, but precise re-identification and achieves state-of-the-art results on person datasets Market1501 and CUHK03. In this work, the Lightweight Multi-Branch Network is adjusted for training on two animal datasets BayWald and Wildpark, that are built from wild animal video recordings. On these datasets, the model reaches 99.95% and 93.64% mAP, respectively.
+
 ## Most important contributions
 
 Essential modifications from the original code include:
